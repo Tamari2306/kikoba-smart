@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "393700849029",
+    "project_id": "kikoba-smart",
+    "storage_bucket": "kikoba-smart.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:393700849029:android:0a99772f65525b5420c0ec",
+        "android_client_info": {
+          "package_name": "com.example.kikoba_smart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzr9q7X7sNUbqoT8n3x-QvRPXeqq77F-s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:393700849029:android:b1b1274ac8159d4420c0ec",
+        "android_client_info": {
+          "package_name": "com.kikoba.smart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzr9q7X7sNUbqoT8n3x-QvRPXeqq77F-s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
