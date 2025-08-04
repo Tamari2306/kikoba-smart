@@ -49,6 +49,7 @@ class MemberDashboard extends ConsumerWidget {
             DashboardCard(
               title: "Make Contribution",
               icon: Icons.account_balance_wallet,
+              color: Colors.green,
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MakeContributionScreen(),));
               },
@@ -57,6 +58,7 @@ class MemberDashboard extends ConsumerWidget {
             DashboardCard(
               title: "Request Loan",
               icon: Icons.request_page,
+              color: Colors.blue,
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RequestLoanScreen(),));
               },
@@ -65,6 +67,7 @@ class MemberDashboard extends ConsumerWidget {
             DashboardCard(
               title: "Repay Loan",
               icon: Icons.payments,
+              color: Colors.orange,
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RepayLoanScreen(),));
               },

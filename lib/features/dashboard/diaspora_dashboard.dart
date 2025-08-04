@@ -43,6 +43,7 @@ class DiasporaDashboard extends ConsumerWidget {
               DashboardCard(
                 title: "Invest in Group",
                 icon: Icons.attach_money,
+                color: Colors.green,
                 onTap: () {
                   // TODO
                 },
@@ -50,6 +51,7 @@ class DiasporaDashboard extends ConsumerWidget {
               DashboardCard(
                 title: "Monitor Group Activity",
                 icon: Icons.bar_chart,
+                color: Colors.blue,
                 onTap: () {
                   // TODO
                 },

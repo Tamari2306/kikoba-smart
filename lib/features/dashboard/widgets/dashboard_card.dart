@@ -9,7 +9,7 @@ class DashboardCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.icon,
-    required this.onTap,
+    required this.onTap, required MaterialColor color,
   });
 
   @override

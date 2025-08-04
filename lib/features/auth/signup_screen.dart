@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../providers/auth_provider.dart';
 
@@ -17,13 +16,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _groupInputController = TextEditingController();
+  final _groupCodeController = TextEditingController();
 
-  final _interestRateController = TextEditingController();
-  final _penaltyPerDayController = TextEditingController();
-  final _constitutionController = TextEditingController();
-
-  String _selectedRole = 'admin';
+  String _selectedRole = 'member';
   bool _loading = false;
 
   Future<void> _handleSignup() async {
@@ -31,68 +26,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(() => _loading = true);
 
     final authService = ref.read(authServiceProvider);
-    final firestore = FirebaseFirestore.instance;
 
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    final groupInput = _groupInputController.text.trim();
-
-    String? groupId;
+    final groupCode = _groupCodeController.text.trim();
 
     try {
-      if (_selectedRole == 'admin') {
-        final newGroup = await firestore.collection('groups').add({
-          'name': groupInput,
-          'createdAt': DateTime.now(),
-        });
-        groupId = newGroup.id;
-
-        final interestRate = double.tryParse(_interestRateController.text.trim()) ?? 0.1;
-        final penaltyPerDay = int.tryParse(_penaltyPerDayController.text.trim()) ?? 5000;
-        final rules = _constitutionController.text.trim();
-
-        await firestore.collection('groups').doc(groupId).collection('settings').doc('config').set({
-  'interestRate': 0.1,
-  'penaltyPerDay': 100,
-  'smallLoanLimit': 50000,
-  'smallLoanDurationDays': 30,
-  'largeLoanDurationDays': 60,
-});
-
-// Save group constitution/rules
-await firestore.collection('groups').doc(groupId).collection('settings').doc('constitution').set({
-  'rules': '''
-1. Members must contribute monthly.
-2. Loans above TZS 1M must be approved by majority.
-3. Interest rate: 10% per loan duration.
-4. Penalty: TZS 5,000/day for overdue loans.
-5. Diaspora can only invest, not borrow.
-
-These rules are governed by the group's agreement.
-''',
-});
-
-
-      } else {
-        final groupDoc = await firestore.collection('groups').doc(groupInput).get();
-        if (!groupDoc.exists) throw Exception("Group code not found");
-        groupId = groupInput;
-      }
-
       await authService.signUp(
         name: name,
         email: email,
         password: password,
         role: _selectedRole,
-        groupId: groupId,
+        groupId: _selectedRole == 'admin' ? null : groupCode, // Admin will create group later
       );
 
       ref.invalidate(currentUserProvider);
 
+      // Navigate based on role
       switch (_selectedRole) {
         case 'admin':
-          if (mounted) context.go('/dashboard/admin');
+          if (mounted) context.go('/group-creation'); // Redirect to group creation
           break;
         case 'member':
           if (mounted) context.go('/dashboard/member');
@@ -102,101 +56,197 @@ These rules are governed by the group's agreement.
           break;
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Signup failed: ${e.toString()}')));
+      }
     }
 
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _groupCodeController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up')),
+      appBar: AppBar(
+        title: const Text('Create Account'),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SizedBox(height: 20),
+              
+              // Header
+              Text(
+                'Join Our Community',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Create your account to get started',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+
+              // Name Field
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: "Name"),
+                decoration: const InputDecoration(
+                  labelText: "Full Name",
+                  prefixIcon: Icon(Icons.person),
+                  border: OutlineInputBorder(),
+                ),
                 validator: (val) =>
-                    val == null || val.isEmpty ? "Enter your name" : null,
+                    val == null || val.trim().isEmpty ? "Please enter your full name" : null,
               ),
+              const SizedBox(height: 16),
+
+              // Email Field
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: "Email"),
-                validator: (val) =>
-                    val != null && val.contains('@') ? null : "Invalid email",
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: "Email Address",
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) return "Please enter your email";
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val)) {
+                    return "Please enter a valid email address";
+                  }
+                  return null;
+                },
               ),
+              const SizedBox(height: 16),
+
+              // Password Field
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: "Password"),
+                decoration: const InputDecoration(
+                  labelText: "Password",
+                  prefixIcon: Icon(Icons.lock),
+                  border: OutlineInputBorder(),
+                ),
                 obscureText: true,
-                validator: (val) =>
-                    val != null && val.length >= 6 ? null : "Min 6 chars",
+                validator: (val) {
+                  if (val == null || val.isEmpty) return "Please enter a password";
+                  if (val.length < 6) return "Password must be at least 6 characters";
+                  return null;
+                },
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _selectedRole,
-                decoration: const InputDecoration(labelText: "Role"),
-                items: const [
-                  DropdownMenuItem(value: 'admin', child: Text('Admin (Create group)')),
-                  DropdownMenuItem(value: 'member', child: Text('Member (Join group)')),
-                  DropdownMenuItem(value: 'diaspora', child: Text('Diaspora')),
-                ],
-                onChanged: (val) => setState(() => _selectedRole = val!),
-              ),
-              const SizedBox(height: 12),
-              if (_selectedRole == 'admin') ...[
-                TextFormField(
-                  controller: _groupInputController,
-                  decoration: const InputDecoration(labelText: "Group name"),
-                  validator: (val) =>
-                      val == null || val.isEmpty ? "Enter group name" : null,
-                ),
-                TextFormField(
-                  controller: _interestRateController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Interest rate (e.g. 0.1 for 10%)"),
-                  validator: (val) =>
-                      val == null || double.tryParse(val) == null ? "Enter valid interest rate" : null,
-                ),
-                TextFormField(
-                  controller: _penaltyPerDayController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Penalty per overdue day (TZS)"),
-                  validator: (val) =>
-                      val == null || int.tryParse(val) == null ? "Enter penalty per day" : null,
-                ),
-                TextFormField(
-                  controller: _constitutionController,
-                  decoration: const InputDecoration(labelText: "Group rules / constitution"),
-                  maxLines: 5,
-                  validator: (val) =>
-                      val == null || val.isEmpty ? "Enter group rules" : null,
-                ),
-              ],
-              if (_selectedRole == 'member')
-                TextFormField(
-                  controller: _groupInputController,
-                  decoration: const InputDecoration(labelText: "Group code"),
-                  validator: (val) =>
-                      val == null || val.isEmpty ? "Enter group code" : null,
-                ),
               const SizedBox(height: 20),
+
+              // Role Selection
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select Your Role',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Admin Option
+                      RadioListTile<String>(
+                        title: const Text('Admin'),
+                        subtitle: const Text('Create and manage a new group'),
+                        value: 'admin',
+                        groupValue: _selectedRole,
+                        onChanged: (val) => setState(() => _selectedRole = val!),
+                      ),
+                      
+                      // Member Option
+                      RadioListTile<String>(
+                        title: const Text('Member'),
+                        subtitle: const Text('Join an existing group'),
+                        value: 'member',
+                        groupValue: _selectedRole,
+                        onChanged: (val) => setState(() => _selectedRole = val!),
+                      ),
+                      
+                      // Diaspora Option
+                      RadioListTile<String>(
+                        title: const Text('Diaspora'),
+                        subtitle: const Text('Invest in groups from abroad'),
+                        value: 'diaspora',
+                        groupValue: _selectedRole,
+                        onChanged: (val) => setState(() => _selectedRole = val!),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Group Code Field (only for members and diaspora)
+              if (_selectedRole != 'admin') ...[
+                TextFormField(
+                  controller: _groupCodeController,
+                  decoration: InputDecoration(
+                    labelText: "Group Code",
+                    prefixIcon: const Icon(Icons.group),
+                    border: const OutlineInputBorder(),
+                    helperText: _selectedRole == 'member' 
+                        ? "Enter the code provided by your group admin"
+                        : "Enter the code of the group you want to invest in",
+                  ),
+                  validator: (val) =>
+                      val == null || val.trim().isEmpty ? "Please enter the group code" : null,
+                ),
+                const SizedBox(height: 24),
+              ] else
+                const SizedBox(height: 24),
+
+              // Signup Button
               ElevatedButton(
                 onPressed: _loading ? null : _handleSignup,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 child: _loading
-                    ? const CircularProgressIndicator()
-                    : const Text("Sign Up"),
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        _selectedRole == 'admin' ? "Create Account & Setup Group" : "Create Account",
+                        style: const TextStyle(fontSize: 16),
+                      ),
               ),
+              const SizedBox(height: 16),
+
+              // Login Link
               TextButton(
                 onPressed: () => context.go('/login'),
-                child: const Text("Already have an account? Log in"),
-              )
+                child: const Text("Already have an account? Sign In"),
+              ),
             ],
           ),
         ),

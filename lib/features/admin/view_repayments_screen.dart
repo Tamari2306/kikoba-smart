@@ -28,6 +28,16 @@ class ViewRepaymentsScreen extends ConsumerWidget {
           body: StreamBuilder<QuerySnapshot>(
             stream: stream,
             builder: (context, snapshot) {
+              // Add debugging
+              print("Repayments snapshot state: ${snapshot.connectionState}");
+              print("Repayments snapshot hasData: ${snapshot.hasData}");
+              if (snapshot.hasData) {
+                print("Repayments docs count: ${snapshot.data!.docs.length}");
+                for (var doc in snapshot.data!.docs) {
+                  print("Repayment doc: ${doc.data()}");
+                }
+              }
+              
               if (snapshot.hasError) {
                 return Center(
                   child: Column(
@@ -81,12 +91,19 @@ class ViewRepaymentsScreen extends ConsumerWidget {
                     repaymentDate = (data['paidAt'] as Timestamp).toDate();
                   }
 
+                  final principalAmount = data['principalAmount'] ?? amount;
+                  final penaltyAmount = data['penaltyAmount'] ?? 0;
+                  final daysOverdue = data['daysOverdue'] ?? 0;
+
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: ListTile(
+                    child: ExpansionTile(
                       leading: CircleAvatar(
-                        backgroundColor: Colors.green.shade100,
-                        child: const Icon(Icons.payment, color: Colors.green),
+                        backgroundColor: penaltyAmount > 0 ? Colors.orange.shade100 : Colors.green.shade100,
+                        child: Icon(
+                          penaltyAmount > 0 ? Icons.warning : Icons.payment,
+                          color: penaltyAmount > 0 ? Colors.orange : Colors.green,
+                        ),
                       ),
                       title: Text(
                         "TZS ${amount.toString()}",
@@ -96,7 +113,11 @@ class ViewRepaymentsScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text("By: $userName"),
-                          if (loanId != 'N/A') Text("Loan ID: $loanId", style: const TextStyle(fontSize: 12)),
+                          if (penaltyAmount > 0)
+                            Text(
+                              "Includes TZS $penaltyAmount penalty",
+                              style: const TextStyle(color: Colors.orange, fontSize: 12),
+                            ),
                         ],
                       ),
                       trailing: repaymentDate != null
@@ -115,9 +136,72 @@ class ViewRepaymentsScreen extends ConsumerWidget {
                               ],
                             )
                           : const Text("No date", style: TextStyle(fontSize: 12)),
-                      isThreeLine: loanId != 'N/A',
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text("Principal Amount:"),
+                                  Text("TZS $principalAmount", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              if (penaltyAmount > 0) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text("Penalty Amount:"),
+                                    Text(
+                                      "TZS $penaltyAmount", 
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                                if (daysOverdue > 0) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text("Days Overdue:"),
+                                      Text(
+                                        "$daysOverdue days", 
+                                        style: const TextStyle(color: Colors.orange),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                              if (loanId != 'N/A') ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text("Loan ID:"),
+                                    Text(loanId, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text("Total Paid:", style: TextStyle(fontWeight: FontWeight.bold)),
+                                  Text(
+                                    "TZS $amount", 
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
+                
                 },
               );
             },
