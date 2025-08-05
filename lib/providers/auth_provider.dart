@@ -1,15 +1,31 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
-final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+// Auth service provider
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService();
+});
 
-final authStateProvider = StreamProvider((ref) {
+// Firebase user stream provider
+final authStateProvider = StreamProvider<User?>((ref) {
   final authService = ref.watch(authServiceProvider);
   return authService.authStateChanges;
 });
 
-final currentUserProvider = FutureProvider<AppUser?>((ref) async {
-  final authService = ref.watch(authServiceProvider);
-  return await authService.getCurrentUser();
+// Current user provider
+final currentUserProvider = FutureProvider<UserModel?>((ref) async {
+  // Watch auth state to trigger rebuild when user signs in/out
+  final authState = ref.watch(authStateProvider);
+  
+  return authState.when(
+    data: (user) async {
+      if (user == null) return null;
+      final authService = ref.watch(authServiceProvider);
+      return await authService.getCurrentUser();
+    },
+    loading: () => null,
+    error: (_, __) => null,
+  );
 });

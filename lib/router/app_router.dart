@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,21 +16,32 @@ import 'package:kikoba_smart/features/dashboard/diaspora_dashboard.dart';
 import 'package:kikoba_smart/features/dashboard/member_dashboard.dart';
 import 'package:kikoba_smart/providers/auth_provider.dart';
 
-
-
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final userAsync = ref.watch(currentUserProvider);
+
   return GoRouter(
     initialLocation: '/login',
-    redirect: (context, state) async {
-      final auth = ref.read(authStateProvider);
-      final user = await ref.read(currentUserProvider.future);
-
+    refreshListenable: GoRouterRefreshStream(ref.watch(authStateProvider.stream)),
+    redirect: (context, state) {
       final isLoggingIn = state.fullPath == '/login' || state.fullPath == '/signup';
-      if (auth.asData?.value == null && !isLoggingIn) {
+      final isAuthenticated = authState.value != null;
+
+      // 1. If still loading auth state, don't redirect
+      if (authState.isLoading || userAsync.isLoading) {
+        return null;
+      }
+
+      // 2. Not authenticated and not on login/signup -> go to login
+      if (!isAuthenticated && !isLoggingIn) {
         return '/login';
       }
 
-      if (user != null) {
+      // 3. Authenticated but on login/signup page -> redirect based on role
+      if (isAuthenticated && isLoggingIn) {
+        final user = userAsync.value;
+        if (user == null) return null; // still loading
+
         switch (user.role) {
           case 'admin':
             return '/dashboard/admin';
@@ -36,40 +49,79 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             return '/dashboard/member';
           case 'diaspora':
             return '/dashboard/diaspora';
+          default:
+            return '/login'; // fallback
         }
       }
 
+      // 4. Allow navigation
       return null;
     },
     routes: [
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen(),),
-      GoRoute(path: '/signup', builder: (_, __) => const SignupScreen(),),
-      GoRoute(path: '/dashboard/admin', builder: (_, __) => const AdminDashboard(),),
-      GoRoute(path: '/dashboard/member', builder: (_, __) => const MemberDashboard(),),
-      GoRoute(path: '/dashboard/diaspora', builder: (_, __) => const DiasporaDashboard(),),
-      GoRoute(path: '/admin/contributions', builder: (_, __) => const ViewContributionsScreen(),),
-      GoRoute(path: '/admin/manage-members', builder: (_, __) => const ManageMembersScreen(),),
-      GoRoute(path: '/admin/approve-loans', builder: (_, __) => const ApproveLoansScreen(),),
-      GoRoute(path: '/admin/loan-requests',builder: (_, __) => const ViewLoanRequestsScreen(),),
-      GoRoute(path: '/group-creation',builder: (context, state) => const GroupCreationScreen(),),
-      GoRoute(path: '/close-group',builder: (context, state) => const CloseGroupScreen(),),
+      /// AUTH
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/signup',
+        builder: (context, state) => const SignupScreen(),
+      ),
 
+      /// DASHBOARDS
+      GoRoute(
+        path: '/dashboard/admin',
+        builder: (context, state) => const AdminDashboard(),
+      ),
+      GoRoute(
+        path: '/dashboard/member',
+        builder: (context, state) => const MemberDashboard(),
+      ),
+      GoRoute(
+        path: '/dashboard/diaspora',
+        builder: (context, state) => const DiasporaDashboard(),
+      ),
+
+      /// ADMIN FEATURES
+      GoRoute(
+        path: '/admin/contributions',
+        builder: (context, state) => const ViewContributionsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/manage-members',
+        builder: (context, state) => const ManageMembersScreen(),
+      ),
+      GoRoute(
+        path: '/admin/approve-loans',
+        builder: (context, state) => const ApproveLoansScreen(),
+      ),
+      GoRoute(
+        path: '/admin/loan-requests',
+        builder: (context, state) => const ViewLoanRequestsScreen(),
+      ),
+      GoRoute(
+        path: '/group-creation',
+        builder: (context, state) => const GroupCreationScreen(),
+      ),
+      GoRoute(
+        path: '/close-group',
+        builder: (context, state) => const CloseGroupScreen(),
+      ),
     ],
   );
 });
 
-class KikobaApp extends ConsumerWidget {
-  const KikobaApp({super.key});
+/// Allows GoRouter to refresh when auth state changes
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+  }
+
+  late final StreamSubscription<dynamic> _subscription;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(appRouterProvider);
-
-    return MaterialApp.router(
-      title: 'Kikoba Smart',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.blue),
-      routerConfig: router,
-    );
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
   }
 }

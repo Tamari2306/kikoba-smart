@@ -13,7 +13,7 @@ class ViewContributionsScreen extends ConsumerStatefulWidget {
 class _ViewContributionsScreenState extends ConsumerState<ViewContributionsScreen> {
   String _sortBy = 'date'; // 'date' or 'user'
   String _filterType = 'all'; // 'all', 'hisa', or 'jamii'
-  Map<String, bool> _expandedUsers = {};
+  final Map<String, bool> _expandedUsers = {};
 
   @override
   Widget build(BuildContext context) {
