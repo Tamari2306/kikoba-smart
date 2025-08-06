@@ -19,6 +19,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _groupIdController = TextEditingController();
+
   
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -33,6 +35,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _groupIdController.dispose();
     super.dispose();
   }
 
@@ -59,6 +62,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           password: _passwordController.text,
           name: _nameController.text.trim(),
           role: _selectedRole,
+          groupId: _groupIdController.text.trim(),
         );
       } else {
         result = await authService.signUpWithEmail(
@@ -67,6 +71,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           name: _nameController.text.trim(),
           phone: _phoneController.text.trim(),
           role: _selectedRole,
+          groupId: _groupIdController.text.trim(),
         );
       }
 
@@ -394,6 +399,33 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ),
                 
                 const SizedBox(height: 16),
+
+                if (_selectedRole == 'member' || _selectedRole == 'diaspora') ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _groupIdController,
+                    decoration: InputDecoration(
+                      labelText: 'Group ID',
+                      prefixIcon: const Icon(Icons.group),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.green[600]!),
+                      ),
+                    ),
+                    validator: (value) {
+                      if ((_selectedRole == 'member' || _selectedRole == 'diaspora') &&
+                          (value == null || value.trim().isEmpty)) {
+                        return 'Group ID ni lazima kwa mwanachama au diaspora';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 
                 // Password field
                 TextFormField(

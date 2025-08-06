@@ -39,67 +39,75 @@ class AuthService {
 
   // Sign up with email and password
   Future<AuthResult> signUpWithEmail({
-    required String email,
-    required String password,
-    required String name,
-    required String phone,
-    required String role, // Changed from UserRole to String
-    String? groupId,
-    String? groupName,
-  }) async {
-    try {
-      // Create Firebase user
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+  required String email,
+  required String password,
+  required String name,
+  required String phone,
+  required String role,
+  String? groupId,
+  String? groupName, // keep this for admin case
+}) async {
+  try {
+    // Create Firebase user
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
 
-      if (credential.user == null) {
-        return AuthResult(success: false, message: 'Failed to create user account');
-      }
-
-      // Create user document in Firestore
-      final userModel = UserModel(
-        id: credential.user!.uid,
-        name: name.trim(),
-        email: email.trim(),
-        phone: _formatPhone(phone),
-        role: role.toLowerCase(), // Ensure consistent casing
-        groupId: groupId,
-        groupName: groupName,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      await _firestore.collection('users').doc(credential.user!.uid).set(
-        userModel.toFirestore(),
-      );
-
-      // Update Firebase display name
-      await credential.user!.updateDisplayName(name.trim());
-
-      return AuthResult(success: true, user: userModel);
-    } on FirebaseAuthException catch (e) {
-      String message = 'An error occurred during sign up';
-      switch (e.code) {
-        case 'weak-password':
-          message = 'The password provided is too weak';
-          break;
-        case 'email-already-in-use':
-          message = 'An account already exists for that email';
-          break;
-        case 'invalid-email':
-          message = 'The email address is not valid';
-          break;
-        case 'operation-not-allowed':
-          message = 'Email/password accounts are not enabled';
-          break;
-      }
-      return AuthResult(success: false, message: message);
-    } catch (e) {
-      return AuthResult(success: false, message: 'An unexpected error occurred: ${e.toString()}');
+    if (credential.user == null) {
+      return AuthResult(success: false, message: 'Failed to create user account');
     }
+
+    // 🔥 If no groupName provided but groupId is, fetch it from Firestore
+    if (groupName == null && groupId != null) {
+      final groupDoc = await _firestore.collection('groups').doc(groupId).get();
+      if (groupDoc.exists) {
+        groupName = groupDoc.data()?['name'] ?? 'Unknown Group';
+      }
+    }
+
+    // Create user document in Firestore
+    final userModel = UserModel(
+      id: credential.user!.uid,
+      name: name.trim(),
+      email: email.trim(),
+      phone: _formatPhone(phone),
+      role: role.toLowerCase(),
+      groupId: groupId,
+      groupName: groupName, // ✅ always has a value now
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await _firestore.collection('users').doc(credential.user!.uid).set(
+      userModel.toFirestore(),
+    );
+
+    // Update Firebase display name
+    await credential.user!.updateDisplayName(name.trim());
+
+    return AuthResult(success: true, user: userModel);
+  } on FirebaseAuthException catch (e) {
+    String message = 'An error occurred during sign up';
+    switch (e.code) {
+      case 'weak-password':
+        message = 'The password provided is too weak';
+        break;
+      case 'email-already-in-use':
+        message = 'An account already exists for that email';
+        break;
+      case 'invalid-email':
+        message = 'The email address is not valid';
+        break;
+      case 'operation-not-allowed':
+        message = 'Email/password accounts are not enabled';
+        break;
+    }
+    return AuthResult(success: false, message: message);
+  } catch (e) {
+    return AuthResult(success: false, message: 'An unexpected error occurred: ${e.toString()}');
   }
+}
 
   // Sign up with phone number
   Future<AuthResult> signUpWithPhone({
@@ -229,18 +237,30 @@ class AuthService {
   }
 
   // Add user to group
-  Future<AuthResult> addUserToGroup(String userId, String groupId, String groupName) async {
-    try {
-      await _firestore.collection('users').doc(userId).update({
-        'groupId': groupId,
-        'groupName': groupName,
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      });
-      return AuthResult(success: true, message: 'User added to group successfully');
-    } catch (e) {
-      return AuthResult(success: false, message: 'Failed to add user to group: ${e.toString()}');
+  Future<AuthResult> addUserToGroup(String userId, String groupId, {String? groupName}) async {
+  try {
+    // If groupName not provided, fetch it from Firestore
+    if (groupName == null) {
+      final groupDoc = await _firestore.collection('groups').doc(groupId).get();
+      if (groupDoc.exists) {
+        groupName = groupDoc.data()?['name'] ?? 'Unknown Group';
+      } else {
+        return AuthResult(success: false, message: 'Group not found');
+      }
     }
+
+    // Update user document
+    await _firestore.collection('users').doc(userId).update({
+      'groupId': groupId,
+      'groupName': groupName,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+
+    return AuthResult(success: true, message: 'User added to group successfully');
+  } catch (e) {
+    return AuthResult(success: false, message: 'Failed to add user to group: ${e.toString()}');
   }
+}
 
   // Sign out
   Future<void> signOut() async {

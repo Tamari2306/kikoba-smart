@@ -16,6 +16,7 @@ dependencies:
   # Firebase
   firebase_auth: ^6.0.0
 
+
   # State management
   flutter_riverpod: ^2.6.1
   flutter_hooks: ^0.21.2
